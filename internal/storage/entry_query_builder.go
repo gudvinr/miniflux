@@ -49,7 +49,7 @@ func (e *EntryQueryBuilder) WithSearchQuery(query string) *EntryQueryBuilder {
 	}
 
 	nArgs := e.args.append(query)
-	e.where.and(fmt.Sprintf("e.document_vectors @@ plainto_tsquery($%d)", nArgs))
+	e.where.andf("e.document_vectors @@ plainto_tsquery($%d)", nArgs)
 
 	// 0.0000001 = 0.1 / (seconds_in_a_day)
 	e.orderBy.desc(
@@ -136,7 +136,7 @@ func (e *EntryQueryBuilder) WithEntryIDs(entryIDs []int64) *EntryQueryBuilder {
 	}
 
 	nArgs := e.args.append(pq.Int64Array(entryIDs))
-	e.where.and(fmt.Sprintf("e.id = ANY($%d)", nArgs))
+	e.where.andf("e.id = ANY($%d)", nArgs)
 
 	return e
 }
@@ -200,7 +200,7 @@ func (e *EntryQueryBuilder) WithStatuses(statuses []string) *EntryQueryBuilder {
 	}
 
 	nArgs := e.args.append(pq.StringArray(statuses))
-	e.where.and(fmt.Sprintf("e.status = ANY($%d)", nArgs))
+	e.where.andf("e.status = ANY($%d)", nArgs)
 
 	return e
 }
@@ -209,7 +209,7 @@ func (e *EntryQueryBuilder) WithStatuses(statuses []string) *EntryQueryBuilder {
 func (e *EntryQueryBuilder) WithTags(tags []string) *EntryQueryBuilder {
 	for _, cat := range tags {
 		nArgs := e.args.append(cat)
-		e.where.and(fmt.Sprintf("LOWER($%d) = ANY(LOWER(e.tags::text)::text[])", nArgs))
+		e.where.andf("LOWER($%d) = ANY(LOWER(e.tags::text)::text[])", nArgs)
 	}
 
 	return e

@@ -30,7 +30,7 @@ func (e *entryPaginationBuilder) WithSearchQuery(query string) *entryPaginationB
 	}
 
 	nArgs := e.args.append(query)
-	e.where.and(fmt.Sprintf("e.document_vectors @@ plainto_tsquery($%d)", nArgs))
+	e.where.andf("e.document_vectors @@ plainto_tsquery($%d)", nArgs)
 
 	return e
 }
@@ -91,7 +91,7 @@ func (e *entryPaginationBuilder) WithStatusOrEntryID(status string, entryID int6
 
 	statusArg := e.args.append(status)
 	entryArg := e.args.append(entryID)
-	e.where.and(fmt.Sprintf("(e.status = $%d OR e.id = $%d)", statusArg, entryArg))
+	e.where.andf("(e.status = $%d OR e.id = $%d)", statusArg, entryArg)
 
 	return e
 }
@@ -99,7 +99,7 @@ func (e *entryPaginationBuilder) WithStatusOrEntryID(status string, entryID int6
 func (e *entryPaginationBuilder) WithTags(tags []string) *entryPaginationBuilder {
 	for _, tag := range tags {
 		nArgs := e.args.append(tag)
-		e.where.and(fmt.Sprintf("LOWER($%d) = ANY(LOWER(e.tags::text)::text[])", nArgs))
+		e.where.andf("LOWER($%d) = ANY(LOWER(e.tags::text)::text[])", nArgs)
 	}
 
 	return e
