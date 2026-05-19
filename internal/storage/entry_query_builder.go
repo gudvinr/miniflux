@@ -44,16 +44,19 @@ func (e *EntryQueryBuilder) WithoutContent() *EntryQueryBuilder {
 
 // WithSearchQuery adds full-text search query to the condition.
 func (e *EntryQueryBuilder) WithSearchQuery(query string) *EntryQueryBuilder {
-	if query != "" {
-		nArgs := len(e.args) + 1
-		e.where.and(fmt.Sprintf("e.document_vectors @@ plainto_tsquery($%d)", nArgs))
-		e.args = append(e.args, query)
-
-		// 0.0000001 = 0.1 / (seconds_in_a_day)
-		e.orderBy.desc(
-			fmt.Sprintf("ts_rank(document_vectors, plainto_tsquery($%d)) - extract (epoch from now() - published_at)::float * 0.0000001", nArgs),
-		)
+	if query == "" {
+		return e
 	}
+
+	nArgs := len(e.args) + 1
+	e.where.and(fmt.Sprintf("e.document_vectors @@ plainto_tsquery($%d)", nArgs))
+	e.args = append(e.args, query)
+
+	// 0.0000001 = 0.1 / (seconds_in_a_day)
+	e.orderBy.desc(
+		fmt.Sprintf("ts_rank(document_vectors, plainto_tsquery($%d)) - extract (epoch from now() - published_at)::float * 0.0000001", nArgs),
+	)
+
 	return e
 }
 
@@ -97,99 +100,127 @@ func (e *EntryQueryBuilder) AfterPublishedDate(date time.Time) *EntryQueryBuilde
 
 // BeforeEntryID adds a condition < entryID.
 func (e *EntryQueryBuilder) BeforeEntryID(entryID int64) *EntryQueryBuilder {
-	if entryID != 0 {
-		e.where.and("e.id < $" + strconv.Itoa(len(e.args)+1))
-		e.args = append(e.args, entryID)
+	if entryID == 0 {
+		return e
 	}
+
+	e.where.and("e.id < $" + strconv.Itoa(len(e.args)+1))
+	e.args = append(e.args, entryID)
+
 	return e
 }
 
 // AfterEntryID adds a condition > entryID.
 func (e *EntryQueryBuilder) AfterEntryID(entryID int64) *EntryQueryBuilder {
-	if entryID != 0 {
-		e.where.and("e.id > $" + strconv.Itoa(len(e.args)+1))
-		e.args = append(e.args, entryID)
+	if entryID == 0 {
+		return e
 	}
+
+	e.where.and("e.id > $" + strconv.Itoa(len(e.args)+1))
+	e.args = append(e.args, entryID)
+
 	return e
 }
 
 // WithEntryIDs filter by entry IDs.
 func (e *EntryQueryBuilder) WithEntryIDs(entryIDs []int64) *EntryQueryBuilder {
-	if len(entryIDs) == 1 {
-		e.where.and(fmt.Sprintf("e.id = $%d", len(e.args)+1))
-		e.args = append(e.args, entryIDs[0])
-	} else if len(entryIDs) > 1 {
-		e.where.and(fmt.Sprintf("e.id = ANY($%d)", len(e.args)+1))
-		e.args = append(e.args, pq.Int64Array(entryIDs))
+	if len(entryIDs) == 0 {
+		return e
 	}
+
+	if len(entryIDs) == 1 {
+		return e.WithEntryID(entryIDs[0])
+	}
+
+	e.where.and(fmt.Sprintf("e.id = ANY($%d)", len(e.args)+1))
+	e.args = append(e.args, pq.Int64Array(entryIDs))
+
 	return e
 }
 
 // WithEntryID filter by entry ID.
 func (e *EntryQueryBuilder) WithEntryID(entryID int64) *EntryQueryBuilder {
-	if entryID != 0 {
-		e.where.and("e.id = $" + strconv.Itoa(len(e.args)+1))
-		e.args = append(e.args, entryID)
+	if entryID == 0 {
+		return e
 	}
+
+	e.where.and("e.id = $" + strconv.Itoa(len(e.args)+1))
+	e.args = append(e.args, entryID)
+
 	return e
 }
 
 // WithFeedID filter by feed ID.
 func (e *EntryQueryBuilder) WithFeedID(feedID int64) *EntryQueryBuilder {
-	if feedID > 0 {
-		e.where.and("e.feed_id = $" + strconv.Itoa(len(e.args)+1))
-		e.args = append(e.args, feedID)
+	if feedID == 0 {
+		return e
 	}
+
+	e.where.and("e.feed_id = $" + strconv.Itoa(len(e.args)+1))
+	e.args = append(e.args, feedID)
+
 	return e
 }
 
 // WithCategoryID filter by category ID.
 func (e *EntryQueryBuilder) WithCategoryID(categoryID int64) *EntryQueryBuilder {
-	if categoryID > 0 {
-		e.where.and("f.category_id = $" + strconv.Itoa(len(e.args)+1))
-		e.args = append(e.args, categoryID)
+	if categoryID == 0 {
+		return e
 	}
+
+	e.where.and("f.category_id = $" + strconv.Itoa(len(e.args)+1))
+	e.args = append(e.args, categoryID)
+
 	return e
 }
 
 // WithStatus filter by entry status.
 func (e *EntryQueryBuilder) WithStatus(status string) *EntryQueryBuilder {
-	if status != "" {
-		e.where.and("e.status = $" + strconv.Itoa(len(e.args)+1))
-		e.args = append(e.args, status)
+	if status == "" {
+		return e
 	}
+
+	e.where.and("e.status = $" + strconv.Itoa(len(e.args)+1))
+	e.args = append(e.args, status)
+
 	return e
 }
 
 // WithStatuses filter by a list of entry statuses.
 func (e *EntryQueryBuilder) WithStatuses(statuses []string) *EntryQueryBuilder {
-	if len(statuses) == 1 {
-		e.where.and(fmt.Sprintf("e.status = $%d", len(e.args)+1))
-		e.args = append(e.args, statuses[0])
-	} else if len(statuses) > 1 {
-		e.where.and(fmt.Sprintf("e.status = ANY($%d)", len(e.args)+1))
-		e.args = append(e.args, pq.StringArray(statuses))
+	if len(statuses) == 0 {
+		return e
 	}
+
+	if len(statuses) == 1 {
+		return e.WithStatus(statuses[0])
+	}
+
+	e.where.and(fmt.Sprintf("e.status = ANY($%d)", len(e.args)+1))
+	e.args = append(e.args, pq.StringArray(statuses))
+
 	return e
 }
 
 // WithTags filter by a list of entry tags.
 func (e *EntryQueryBuilder) WithTags(tags []string) *EntryQueryBuilder {
-	if len(tags) > 0 {
-		for _, cat := range tags {
-			e.where.and(fmt.Sprintf("LOWER($%d) = ANY(LOWER(e.tags::text)::text[])", len(e.args)+1))
-			e.args = append(e.args, cat)
-		}
+	for _, cat := range tags {
+		e.where.and(fmt.Sprintf("LOWER($%d) = ANY(LOWER(e.tags::text)::text[])", len(e.args)+1))
+		e.args = append(e.args, cat)
 	}
+
 	return e
 }
 
 // WithoutStatus set the entry status that should not be returned.
 func (e *EntryQueryBuilder) WithoutStatus(status string) *EntryQueryBuilder {
-	if status != "" {
-		e.where.and("e.status <> $" + strconv.Itoa(len(e.args)+1))
-		e.args = append(e.args, status)
+	if status == "" {
+		return e
 	}
+
+	e.where.and("e.status <> $" + strconv.Itoa(len(e.args)+1))
+	e.args = append(e.args, status)
+
 	return e
 }
 
@@ -220,17 +251,23 @@ func (e *EntryQueryBuilder) WithSorting(column, direction string) *EntryQueryBui
 
 // WithLimit set the limit.
 func (e *EntryQueryBuilder) WithLimit(limit int) *EntryQueryBuilder {
-	if limit > 0 {
-		e.limit = min(limit, model.MaxEntryLimit)
+	if limit <= 0 {
+		return e
 	}
+
+	e.limit = min(limit, model.MaxEntryLimit)
+
 	return e
 }
 
 // WithOffset set the offset.
 func (e *EntryQueryBuilder) WithOffset(offset int) *EntryQueryBuilder {
-	if offset > 0 {
-		e.offset = offset
+	if offset <= 0 {
+		return e
 	}
+
+	e.offset = offset
+
 	return e
 }
 
