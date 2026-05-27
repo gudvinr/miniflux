@@ -4,6 +4,7 @@
 package rss // import "miniflux.app/v2/internal/reader/rss"
 
 import (
+	"cmp"
 	"html"
 	"log/slog"
 	"path"
@@ -153,9 +154,6 @@ func (r *rssAdapter) buildFeed(baseURL string) *model.Feed {
 		if len(entry.Tags) == 0 {
 			entry.Tags = findFeedTags(&r.rss.Channel)
 		}
-		// Sort and deduplicate tags.
-		slices.Sort(entry.Tags)
-		entry.Tags = slices.Compact(entry.Tags)
 
 		feed.Entries = append(feed.Entries, entry)
 	}
@@ -184,26 +182,12 @@ func findFeedAuthor(rssChannel *rssChannel) string {
 }
 
 func findFeedTags(rssChannel *rssChannel) []string {
-	itunesCategories := rssChannel.GetItunesCategories()
-	tags := make([]string, 0, len(rssChannel.Categories)+len(itunesCategories)+1)
+	var tags []string
 
-	for _, tag := range rssChannel.Categories {
-		tag = strings.TrimSpace(tag)
-		if tag != "" {
-			tags = append(tags, tag)
-		}
-	}
+	tags = appendSorted(tags, strings.TrimSpace, rssChannel.Categories...)
+	tags = appendSorted(tags, strings.TrimSpace, rssChannel.GetItunesCategories()...)
 
-	for _, tag := range itunesCategories {
-		tag = strings.TrimSpace(tag)
-		if tag != "" {
-			tags = append(tags, tag)
-		}
-	}
-
-	if tag := strings.TrimSpace(rssChannel.GooglePlayCategory.Text); tag != "" {
-		tags = append(tags, tag)
-	}
+	tags = appendSorted(tags, strings.TrimSpace, rssChannel.GooglePlayCategory.Text)
 
 	return tags
 }
@@ -303,22 +287,10 @@ func findEntryAuthor(rssItem *rssItem) string {
 }
 
 func findEntryTags(rssItem *rssItem) []string {
-	mediaLabels := rssItem.MediaCategories.Labels()
-	tags := make([]string, 0, len(rssItem.Categories)+len(mediaLabels))
+	var tags []string
 
-	for _, tag := range rssItem.Categories {
-		tag = strings.TrimSpace(tag)
-		if tag != "" {
-			tags = append(tags, tag)
-		}
-	}
-
-	for _, tag := range mediaLabels {
-		tag = strings.TrimSpace(tag)
-		if tag != "" {
-			tags = append(tags, tag)
-		}
-	}
+	tags = appendSorted(tags, strings.TrimSpace, rssItem.Categories...)
+	tags = appendSorted(tags, strings.TrimSpace, rssItem.MediaCategories.Labels()...)
 
 	return tags
 }
@@ -451,4 +423,26 @@ func findEntryEnclosures(rssItem *rssItem, siteURL string) model.EnclosureList {
 	}
 
 	return enclosures
+}
+
+func appendSorted[I any, O cmp.Ordered](sorted []O, fn func(I) O, values ...I) []O {
+	var zero O
+
+	sorted = slices.Grow(sorted, len(values))
+	for _, in := range values {
+		out := fn(in)
+		if out == zero {
+			continue
+		}
+
+		where, found := slices.BinarySearch(sorted, out)
+		if found {
+			continue
+		}
+
+		// Insert sorted to avoid duplicates.
+		sorted = slices.Insert(sorted, where, out)
+	}
+
+	return sorted
 }

@@ -4,6 +4,7 @@
 package json // import "miniflux.app/v2/internal/reader/json"
 
 import (
+	"cmp"
 	"log/slog"
 	"slices"
 	"strings"
@@ -134,20 +135,10 @@ func (j *JSONAdapter) BuildFeed(baseURL string) *model.Feed {
 		}
 
 		// Populate the entry author.
-		itemAuthors := j.jsonFeed.Authors
-		itemAuthors = append(itemAuthors, item.Authors...)
+		itemAuthors := slices.Concat(j.jsonFeed.Authors, item.Authors)
 		itemAuthors = append(itemAuthors, item.Author, j.jsonFeed.Author)
 
-		var authorNames = make([]string, 0, len(itemAuthors))
-		for _, author := range itemAuthors {
-			authorName := strings.TrimSpace(author.Name)
-			if authorName != "" {
-				authorNames = append(authorNames, authorName)
-			}
-		}
-
-		slices.Sort(authorNames)
-		authorNames = slices.Compact(authorNames)
+		authorNames := makeSorted(JSONAuthor.name, itemAuthors)
 		entry.Author = strings.Join(authorNames, ", ")
 
 		// Populate the entry enclosures.
@@ -175,16 +166,7 @@ func (j *JSONAdapter) BuildFeed(baseURL string) *model.Feed {
 		}
 
 		// Populate the entry tags.
-		for _, tag := range item.Tags {
-			tag = strings.TrimSpace(tag)
-			if tag != "" {
-				entry.Tags = append(entry.Tags, tag)
-			}
-		}
-
-		// Sort and deduplicate tags.
-		slices.Sort(entry.Tags)
-		entry.Tags = slices.Compact(entry.Tags)
+		entry.Tags = makeSorted(strings.TrimSpace, item.Tags)
 
 		// Generate a hash for the entry.
 		for _, value := range []string{item.ID, item.URL, item.ExternalURL, item.ContentText + item.ContentHTML + item.Summary} {
@@ -199,4 +181,26 @@ func (j *JSONAdapter) BuildFeed(baseURL string) *model.Feed {
 	}
 
 	return feed
+}
+
+func makeSorted[I any, O cmp.Ordered](fn func(I) O, values []I) []O {
+	var zero O
+
+	sorted := make([]O, 0, len(values))
+	for _, in := range values {
+		out := fn(in)
+		if out == zero {
+			continue
+		}
+
+		where, found := slices.BinarySearch(sorted, out)
+		if found {
+			continue
+		}
+
+		// Insert sorted to avoid duplicates.
+		sorted = slices.Insert(sorted, where, out)
+	}
+
+	return sorted
 }
