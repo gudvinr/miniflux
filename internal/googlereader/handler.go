@@ -342,9 +342,13 @@ func (h *greaderHandler) quickAddHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	requestBuilder := fetcher.NewRequestBuilder()
-	requestBuilder.WithTimeout(config.Opts.HTTPClientTimeout())
-	requestBuilder.WithProxyRotator(proxyrotator.ProxyRotatorInstance)
+	requestBuilder := fetcher.NewRequestBuilder().
+		WithTimeout(config.Opts.HTTPClientTimeout()).
+		WithProxyRotator(proxyrotator.ProxyRotatorInstance).
+		// Some websites redirects unknown URLs to the home page.
+		// As result, the list of known URLs is returned to the subscription list.
+		// We don't want the user to choose between invalid feed URLs.
+		WithoutRedirects()
 
 	var rssBridgeURL string
 	var rssBridgeToken string

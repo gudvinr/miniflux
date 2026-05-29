@@ -57,17 +57,21 @@ func (h *handler) submitSubscription(w http.ResponseWriter, r *http.Request) {
 		rssBridgeToken = intg.RSSBridgeToken
 	}
 
-	requestBuilder := fetcher.NewRequestBuilder()
-	requestBuilder.WithTimeout(config.Opts.HTTPClientTimeout())
-	requestBuilder.WithProxyRotator(proxyrotator.ProxyRotatorInstance)
-	requestBuilder.WithCustomFeedProxyURL(subscriptionForm.ProxyURL)
-	requestBuilder.WithCustomApplicationProxyURL(config.Opts.HTTPClientProxyURL())
-	requestBuilder.UseCustomApplicationProxyURL(subscriptionForm.FetchViaProxy)
-	requestBuilder.WithUserAgent(subscriptionForm.UserAgent, config.Opts.HTTPClientUserAgent())
-	requestBuilder.WithCookie(subscriptionForm.Cookie)
-	requestBuilder.WithUsernameAndPassword(subscriptionForm.Username, subscriptionForm.Password)
-	requestBuilder.IgnoreTLSErrors(subscriptionForm.AllowSelfSignedCertificates)
-	requestBuilder.DisableHTTP2(subscriptionForm.DisableHTTP2)
+	requestBuilder := fetcher.NewRequestBuilder().
+		WithTimeout(config.Opts.HTTPClientTimeout()).
+		WithProxyRotator(proxyrotator.ProxyRotatorInstance).
+		WithCustomFeedProxyURL(subscriptionForm.ProxyURL).
+		WithCustomApplicationProxyURL(config.Opts.HTTPClientProxyURL()).
+		UseCustomApplicationProxyURL(subscriptionForm.FetchViaProxy).
+		WithUserAgent(subscriptionForm.UserAgent, config.Opts.HTTPClientUserAgent()).
+		WithCookie(subscriptionForm.Cookie).
+		WithUsernameAndPassword(subscriptionForm.Username, subscriptionForm.Password).
+		IgnoreTLSErrors(subscriptionForm.AllowSelfSignedCertificates).
+		DisableHTTP2(subscriptionForm.DisableHTTP2).
+		// Some websites redirects unknown URLs to the home page.
+		// As result, the list of known URLs is returned to the subscription list.
+		// We don't want the user to choose between invalid feed URLs.
+		WithoutRedirects()
 
 	subscriptionFinder := subscription.NewSubscriptionFinder(requestBuilder)
 	subscriptions, localizedError := subscriptionFinder.FindSubscriptions(

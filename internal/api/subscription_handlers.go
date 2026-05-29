@@ -37,17 +37,21 @@ func (h *handler) discoverSubscriptionsHandler(w http.ResponseWriter, r *http.Re
 		rssbridgeToken = intg.RSSBridgeToken
 	}
 
-	requestBuilder := fetcher.NewRequestBuilder()
-	requestBuilder.WithTimeout(config.Opts.HTTPClientTimeout())
-	requestBuilder.WithProxyRotator(proxyrotator.ProxyRotatorInstance)
-	requestBuilder.WithCustomFeedProxyURL(subscriptionDiscoveryRequest.ProxyURL)
-	requestBuilder.WithCustomApplicationProxyURL(config.Opts.HTTPClientProxyURL())
-	requestBuilder.UseCustomApplicationProxyURL(subscriptionDiscoveryRequest.FetchViaProxy)
-	requestBuilder.WithUserAgent(subscriptionDiscoveryRequest.UserAgent, config.Opts.HTTPClientUserAgent())
-	requestBuilder.WithCookie(subscriptionDiscoveryRequest.Cookie)
-	requestBuilder.WithUsernameAndPassword(subscriptionDiscoveryRequest.Username, subscriptionDiscoveryRequest.Password)
-	requestBuilder.IgnoreTLSErrors(subscriptionDiscoveryRequest.AllowSelfSignedCertificates)
-	requestBuilder.DisableHTTP2(subscriptionDiscoveryRequest.DisableHTTP2)
+	requestBuilder := fetcher.NewRequestBuilder().
+		WithTimeout(config.Opts.HTTPClientTimeout()).
+		WithProxyRotator(proxyrotator.ProxyRotatorInstance).
+		WithCustomFeedProxyURL(subscriptionDiscoveryRequest.ProxyURL).
+		WithCustomApplicationProxyURL(config.Opts.HTTPClientProxyURL()).
+		UseCustomApplicationProxyURL(subscriptionDiscoveryRequest.FetchViaProxy).
+		WithUserAgent(subscriptionDiscoveryRequest.UserAgent, config.Opts.HTTPClientUserAgent()).
+		WithCookie(subscriptionDiscoveryRequest.Cookie).
+		WithUsernameAndPassword(subscriptionDiscoveryRequest.Username, subscriptionDiscoveryRequest.Password).
+		IgnoreTLSErrors(subscriptionDiscoveryRequest.AllowSelfSignedCertificates).
+		DisableHTTP2(subscriptionDiscoveryRequest.DisableHTTP2).
+		// Some websites redirects unknown URLs to the home page.
+		// As result, the list of known URLs is returned to the subscription list.
+		// We don't want the user to choose between invalid feed URLs.
+		WithoutRedirects()
 
 	subscriptions, localizedError := subscription.NewSubscriptionFinder(requestBuilder).FindSubscriptions(
 		subscriptionDiscoveryRequest.URL,
