@@ -133,9 +133,10 @@ func (b *Builder) writeHeaders() {
 func (b *Builder) compress(data []byte) {
 	if b.enableCompression && len(data) > compressionThreshold {
 		b.headers.Set("Vary", "Accept-Encoding")
-		acceptEncoding := b.r.Header.Get("Accept-Encoding")
-		switch {
-		case strings.Contains(acceptEncoding, "br"):
+
+		encoding := AcceptEncoding(b.r.Header.Get("Accept-Encoding"))
+		switch encoding {
+		case "br":
 			b.headers.Set("Content-Encoding", "br")
 			b.writeHeaders()
 
@@ -143,7 +144,7 @@ func (b *Builder) compress(data []byte) {
 			brotliWriter.Write(data)
 			brotliWriter.Close()
 			return
-		case strings.Contains(acceptEncoding, "gzip"):
+		case "gzip":
 			b.headers.Set("Content-Encoding", "gzip")
 			b.writeHeaders()
 
@@ -151,7 +152,7 @@ func (b *Builder) compress(data []byte) {
 			gzipWriter.Write(data)
 			gzipWriter.Close()
 			return
-		case strings.Contains(acceptEncoding, "deflate"):
+		case "deflate":
 			b.headers.Set("Content-Encoding", "deflate")
 			b.writeHeaders()
 
